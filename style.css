@@ -1,3 +1,7 @@
+* {
+  box-sizing: border-box;
+}
+
 body {
   font-family: Arial, sans-serif;
 }
@@ -5,18 +9,6 @@ body {
 .container {
   width: 600px;
   margin: 40px auto;
-}
-
-.option {
-  margin-bottom: 8px;
-}
-
-.option input {
-  margin-right: 10px;
-}
-
-.buttons {
-  margin: 10px 0;
 }
 
 #result {
@@ -36,7 +28,7 @@ body {
 table {
   width: 100%;
   border-collapse: collapse;
-  border-spacing: 0;
+  table-layout: fixed;
   margin-bottom: 12px;
 }
 
@@ -44,7 +36,9 @@ td,
 th {
   border: 1px solid black;
   text-align: center;
-  padding: 12px;
+  padding: 0;
+  height: 60px;
+  vertical-align: middle;
 }
 
 .diagonal {
@@ -62,11 +56,13 @@ th {
 
 input {
   width: 100%;
+  height: 100%;
   border: none;
   text-align: center;
   font-size: 14px;
   outline: none;
   background: transparent;
+  padding: 0 10px;
 }
 
 .top-buttons {
