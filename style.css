@@ -7,19 +7,24 @@ body {
   margin: 40px auto;
 }
 
-.top-buttons {
+.option {
+  margin-bottom: 8px;
+}
+
+.option input {
+  margin-right: 10px;
+}
+
+.buttons {
   margin: 10px 0;
 }
 
-.top-buttons button,
-.add-weapon-btn {
-  margin-right: 10px;
-  padding: 5px 10px;
+#result {
+  font-weight: bold;
+  margin-top: 15px;
 }
 
-.character-box {
-  margin-bottom: 20px;
-}
+/* 추가 */
 
 table {
   width: 100%;
@@ -29,41 +34,14 @@ table {
 
 td,
 th {
-  border: 1px solid #000;
-  text-align: center;
+  border: 1px solid black;
   padding: 10px;
-}
-
-.diagonal {
-  width: 80px;
-}
-
-.name-cell {
-  width: 80px;
+  text-align: center;
 }
 
 input {
   width: 100%;
   border: none;
-  text-align: center;
-  font-size: 14px;
   outline: none;
-}
-
-.result-box {
-  margin-top: 20px;
-}
-
-.result-title {
-  font-weight: bold;
-  margin-top: 15px;
-  margin-bottom: 10px;
-}
-
-.result-line {
-  margin-bottom: 8px;
-}
-
-.highlight {
-  font-weight: bold;
+  text-align: center;
 }
