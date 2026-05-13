@@ -20,28 +20,80 @@ body {
 }
 
 #result {
-  font-weight: bold;
   margin-top: 15px;
 }
 
-/* 추가 */
+.characters {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.character-box {
+  margin-bottom: 10px;
+}
 
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 10px;
+  border-spacing: 0;
+  margin-bottom: 12px;
 }
 
 td,
 th {
   border: 1px solid black;
-  padding: 10px;
   text-align: center;
+  padding: 12px;
+}
+
+.diagonal {
+  width: 80px;
+}
+
+.name-cell {
+  width: 80px;
+}
+
+.character-name {
+  font-size: 20px;
+  font-weight: bold;
 }
 
 input {
   width: 100%;
   border: none;
-  outline: none;
   text-align: center;
+  font-size: 14px;
+  outline: none;
+  background: transparent;
+}
+
+.top-buttons {
+  margin: 25px 0;
+}
+
+.top-buttons button,
+.add-weapon-btn {
+  margin-right: 10px;
+  padding: 5px 10px;
+}
+
+.result-box {
+  margin-top: 20px;
+}
+
+.result-title {
+  font-weight: bold;
+  margin-top: 15px;
+  margin-bottom: 10px;
+  font-size: 20px;
+}
+
+.result-line {
+  margin-bottom: 8px;
+}
+
+.highlight {
+  font-weight: normal;
 }
