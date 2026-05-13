@@ -5,7 +5,7 @@
 
 ## 링크
 
-[바로가기](https://gaseu-rangers.github.io/random_roulette/)
+[바로가기]([https://gaseu-rangers.github.io/random_roulette/](https://gaseu-rangers.github.io/weapon_mastery_roulette/))
 
 ## 사용 방법
 1. 이름과 무기, 숙련도를 각 표에 입력합니다.
