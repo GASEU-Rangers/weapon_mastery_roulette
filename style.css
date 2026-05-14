@@ -7,86 +7,70 @@ body {
 }
 
 .container {
-  width: 400px;
-  margin: 40px auto;
-}
-
-#result {
-  margin-top: 15px;
+  width: 650px;
+  margin: 60px auto;
 }
 
 .characters {
   display: flex;
   flex-direction: column;
-  gap: 40px;
-}
-
-.character-box {
-  margin-bottom: 10px;
+  gap: 60px;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  margin-bottom: 12px;
+  margin-bottom: 18px;
 }
 
 td,
 th {
   border: 1px solid #999;
   text-align: center;
-  padding: 0;
-  height: 24px;
-  vertical-align: middle;
-  overflow: hidden;
+  height: 50px;
 }
 
-.diagonal {
-  width: 80px;
-}
-
-.name-cell {
-  width: 70px;
+th {
+  font-size: 24px;
 }
 
 .character-name {
-  font-size: 16px;
+  font-size: 24px;
   font-weight: bold;
 }
 
 input {
   width: 100%;
-  height: 24px;
+  height: 48px;
   border: none;
   text-align: center;
-  font-size: 13px;
+  font-size: 18px;
   outline: none;
   background: transparent;
-  padding: 0 6px;
 }
 
 .top-buttons {
-  margin: 25px 0;
+  margin: 35px 0;
 }
 
 .top-buttons button,
 .add-weapon-btn {
   margin-right: 10px;
-  padding: 5px 10px;
+  padding: 8px 14px;
 }
 
 .result-box {
-  margin-top: 20px;
+  margin-top: 30px;
 }
 
 .result-title {
+  font-size: 28px;
   font-weight: bold;
-  margin-top: 15px;
-  margin-bottom: 10px;
-  font-size: 18px;
+  margin-bottom: 12px;
 }
 
 .result-line {
-  margin-bottom: 8px;
+  font-size: 22px;
+  margin-bottom: 10px;
 }
