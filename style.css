@@ -1,92 +1,574 @@
-* {
-  box-sizing: border-box;
-}
+document.addEventListener("DOMContentLoaded", () => {
+  const charactersContainer =
+    document.getElementById("characters");
 
-body {
-  font-family: Arial, sans-serif;
-}
+  const resultBox =
+    document.getElementById("result");
 
-.container {
-  width: 400px;
-  margin: 40px auto;
-}
+  const addCharacterBtn =
+    document.getElementById("addCharacterBtn");
 
-#result {
-  margin-top: 15px;
-}
+  const firstCollectBtn =
+    document.getElementById("firstCollectBtn");
 
-.characters {
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-}
+  const finalRollBtn =
+    document.getElementById("finalRollBtn");
 
-.character-box {
-  margin-bottom: 10px;
-}
+  // 수거 기록
+  let firstCollection = null;
+  let secondCollection = null;
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-  margin-bottom: 12px;
-}
+  // 최종 처리 중복 실행 방지
+  let hasFinalized = false;
 
-td,
-th {
-  border: 1px solid #999;
-  text-align: center;
-  padding: 0;
-  height: 24px;
-  vertical-align: middle;
-  overflow: hidden;
-}
+  // 분배 결과 HTML
+  let lastDistributionHTML = `
+    <div class="result-line">
+      아직 분배 결과가 없습니다.
+    </div>
+  `;
 
-.diagonal {
-  width: 80px;
-}
+  // ========================================
+  // 초기 화면
+  // ========================================
 
-.name-cell {
-  width: 70px;
-}
+  createCharacter("이름");
+  createCharacter("이름");
 
-.character-name {
-  font-size: 16px;
-  font-weight: bold;
-}
+  renderResults();
 
-input {
-  width: 100%;
-  height: 24px;
-  border: none;
-  text-align: center;
-  font-size: 13px;
-  outline: none;
-  background: transparent;
-  padding: 0 6px;
-}
+  // ========================================
+  // 버튼 연결
+  // ========================================
 
-.top-buttons {
-  margin: 25px 0;
-}
+  addCharacterBtn.addEventListener("click", () => {
+    createCharacter("이름");
+  });
 
-.top-buttons button,
-.add-weapon-btn {
-  margin-right: 10px;
-  padding: 5px 10px;
-}
+  firstCollectBtn.addEventListener("click", firstCollect);
 
-.result-box {
-  margin-top: 20px;
-}
+  finalRollBtn.addEventListener(
+    "click",
+    finalCollectAndDistribute
+  );
 
-.result-title {
-  font-weight: bold;
-  margin-top: 15px;
-  margin-bottom: 10px;
-  font-size: 18px;
-}
+  // ========================================
+  // 캐릭터 표 생성
+  // 기존 표 클래스와 구조 유지
+  // ========================================
 
-.result-line {
-  margin-bottom: 8px;
-}
+  function createCharacter(name) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "character-box";
+
+    const table = document.createElement("table");
+    table.className = "character-table";
+
+    const header = document.createElement("tr");
+
+    header.innerHTML = `
+      <td class="diagonal"></td>
+      <th>무기</th>
+      <th>숙련도</th>
+    `;
+
+    table.appendChild(header);
+
+    // 기본 무기 행
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td class="name-cell" rowspan="1">
+        <input
+          type="text"
+          value="${escapeHTML(name)}"
+          class="character-name">
+      </td>
+
+      <td>
+        <input
+          type="text"
+          class="weapon-input">
+      </td>
+
+      <td>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          value="0"
+          class="mastery-input">
+      </td>
+    `;
+
+    table.appendChild(row);
+
+    // 무기 추가 버튼
+    const addWeaponBtn = document.createElement("button");
+
+    addWeaponBtn.type = "button";
+    addWeaponBtn.textContent = "무기 추가";
+    addWeaponBtn.className = "add-weapon-btn";
+
+    addWeaponBtn.addEventListener("click", () => {
+      const newRow = document.createElement("tr");
+
+      newRow.innerHTML = `
+        <td>
+          <input
+            type="text"
+            class="weapon-input">
+        </td>
+
+        <td>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value="0"
+            class="mastery-input">
+        </td>
+      `;
+
+      table.appendChild(newRow);
+
+      // 캐릭터 이름 셀의 행 병합 유지
+      const nameCell = table.rows[1].cells[0];
+      nameCell.rowSpan += 1;
+    });
+
+    wrapper.appendChild(table);
+    wrapper.appendChild(addWeaponBtn);
+
+    charactersContainer.appendChild(wrapper);
+  }
+
+  // ========================================
+  // 표에서 데이터 읽기
+  // 입력값을 변경하지 않고 읽기만 함
+  // ========================================
+
+  function getCharacterData(table) {
+    const rows = [...table.rows].slice(1);
+
+    if (rows.length === 0) {
+      return {
+        name: "이름",
+        weapons: []
+      };
+    }
+
+    const nameInput =
+      rows[0].cells[0].querySelector(".character-name");
+
+    const name = nameInput?.value.trim() || "이름";
+
+    const weapons = [];
+
+    rows.forEach((row, index) => {
+      let weaponCell;
+      let masteryCell;
+
+      if (index === 0) {
+        weaponCell = row.cells[1];
+        masteryCell = row.cells[2];
+      } else {
+        weaponCell = row.cells[0];
+        masteryCell = row.cells[1];
+      }
+
+      const weaponInput =
+        weaponCell?.querySelector(".weapon-input");
+
+      const masteryInput =
+        masteryCell?.querySelector(".mastery-input");
+
+      if (!weaponInput || !masteryInput) {
+        return;
+      }
+
+      const rawMastery = masteryInput.value.trim();
+      const parsedMastery = Number(rawMastery);
+
+      const validMastery =
+        rawMastery !== "" &&
+        Number.isFinite(parsedMastery) &&
+        Number.isInteger(parsedMastery) &&
+        parsedMastery >= 0;
+
+      weapons.push({
+        weaponInput,
+        masteryInput,
+        weapon: weaponInput.value.trim(),
+        mastery: validMastery ? parsedMastery : 0,
+        validMastery
+      });
+    });
+
+    return {
+      name,
+      weapons
+    };
+  }
+
+  function getAllCharacters() {
+    const tables = [
+      ...document.querySelectorAll(".character-table")
+    ];
+
+    return tables.map(table => getCharacterData(table));
+  }
+
+  // ========================================
+  // 수거
+  //
+  // 캐릭터마다 숙련도 1 이상인 무기 중
+  // 무작위로 하나를 수거 기록에 추가.
+  //
+  // 중요: 표의 숙련도 숫자는 변경하지 않음.
+  // ========================================
+
+  function collectPoints() {
+    const characters = getAllCharacters();
+
+    const log = [];
+
+    characters.forEach(character => {
+      const availableWeapons = character.weapons.filter(
+        weapon =>
+          weapon.weapon !== "" &&
+          weapon.validMastery &&
+          weapon.mastery > 0
+      );
+
+      if (availableWeapons.length === 0) {
+        log.push({
+          owner: character.name,
+          weapon: null
+        });
+
+        return;
+      }
+
+      const selectedWeapon =
+        availableWeapons[
+          Math.floor(
+            Math.random() * availableWeapons.length
+          )
+        ];
+
+      // 표의 숫자는 건드리지 않고 기록만 저장
+      log.push({
+        owner: character.name,
+        weapon: selectedWeapon.weapon
+      });
+    });
+
+    const collectedWeapons = log.filter(
+      item => item.weapon !== null
+    );
+
+    const html = log.map(item => {
+      if (item.weapon === null) {
+        return `
+          <div class="result-line">
+            ${escapeHTML(item.owner)}: 수거 가능한 무기 없음
+          </div>
+        `;
+      }
+
+      return `
+        <div class="result-line">
+          ${escapeHTML(item.owner)}:
+          ${escapeHTML(item.weapon)} -1점
+        </div>
+      `;
+    }).join("");
+
+    return {
+      log,
+      html,
+      total: collectedWeapons.length
+    };
+  }
+
+  // ========================================
+  // 1차 수거
+  //
+  // 새 1차 수거를 누르면 이전 기록을 초기화.
+  // 표의 이름和숙련도는 변경하지 않음.
+  // ========================================
+
+  function firstCollect() {
+    firstCollection = null;
+    secondCollection = null;
+    hasFinalized = false;
+
+    lastDistributionHTML = `
+      <div class="result-line">
+        최종 수거 후 분배 결과가 표시됩니다.
+      </div>
+    `;
+
+    firstCollection = collectPoints();
+
+    renderResults();
+  }
+
+  // ========================================
+  // 최종 수거 및 재분배
+  //
+  // 1. 2차 수거 기록 생성
+  // 2. 1차와 2차 포인트 합산
+  // 3. 숙련도 10 미만인 무기에만 분배
+  // 4. 분배는 내부 계산값만 변경
+  // 5. 표의 숙련도 숫자는 절대 변경하지 않음
+  // ========================================
+
+  function finalCollectAndDistribute() {
+    if (firstCollection === null) {
+      alert("먼저 1차 수거를 진행해 주세요.");
+      return;
+    }
+
+    if (hasFinalized) {
+      alert(
+        "이미 최종 수거 및 재분배가 완료되었습니다. " +
+        "새로 시작하려면 1차 수거를 눌러 주세요."
+      );
+      return;
+    }
+
+    // 2차 수거: 기록만 생성
+    secondCollection = collectPoints();
+
+    const confiscatedTotal =
+      firstCollection.total + secondCollection.total;
+
+    // ========================================
+    // 분배용 가상 숙련도 생성
+    //
+    // 실제 input.value를 바꾸지 않고
+    // 별도 객체에서만 숙련도를 계산함.
+    // ========================================
+
+    const virtualWeapons = [];
+
+    getAllCharacters().forEach(character => {
+      character.weapons.forEach(weapon => {
+        if (
+          weapon.weapon === "" ||
+          !weapon.validMastery
+        ) {
+          return;
+        }
+
+        virtualWeapons.push({
+          owner: character.name,
+          weapon: weapon.weapon,
+
+          // 현재 표에서 읽은 값으로 내부 계산값 생성
+          virtualMastery: weapon.mastery
+        });
+      });
+    });
+
+    const distributionMap = new Map();
+
+    let distributedTotal = 0;
+
+    // ========================================
+    // 포인트별 분배
+    // ========================================
+
+    for (let i = 0; i < confiscatedTotal; i++) {
+      // 매번 가상 숙련도를 다시 확인.
+      // 숙련도 10 이상은 후보에서 제외.
+      const eligibleWeapons = virtualWeapons.filter(
+        weapon => weapon.virtualMastery < 10
+      );
+
+      // 모든 무기가 10 이상이면 남은 포인트 미배분
+      if (eligibleWeapons.length === 0) {
+        break;
+      }
+
+      // 후보 중 무작위 무기 선택
+      const selected =
+        eligibleWeapons[
+          Math.floor(
+            Math.random() * eligibleWeapons.length
+          )
+        ];
+
+      // 실제 표가 아니라 내부 계산값만 증가
+      selected.virtualMastery += 1;
+
+      distributedTotal += 1;
+
+      const key = `${selected.owner}|||${selected.weapon}`;
+
+      if (!distributionMap.has(key)) {
+        distributionMap.set(key, {
+          owner: selected.owner,
+          weapon: selected.weapon,
+          amount: 0
+        });
+      }
+
+      distributionMap.get(key).amount += 1;
+    }
+
+    const undistributedTotal =
+      confiscatedTotal - distributedTotal;
+
+    // ========================================
+    // 분배 결과 만들기
+    // ========================================
+
+    const distributionItems = [
+      ...distributionMap.values()
+    ];
+
+    if (distributionItems.length === 0) {
+      lastDistributionHTML = `
+        <div class="result-line">
+          분배된 포인트가 없습니다.
+        </div>
+      `;
+    } else {
+      lastDistributionHTML = distributionItems.map(item => `
+        <div class="result-line">
+          ${escapeHTML(item.owner)}:
+          ${escapeHTML(item.weapon)}
+          +${item.amount}점
+        </div>
+      `).join("");
+    }
+
+    lastDistributionHTML += `
+      <div class="result-line">
+        수거 포인트 합계: ${confiscatedTotal}점
+      </div>
+
+      <div class="result-line">
+        실제 분배 포인트: ${distributedTotal}점
+      </div>
+    `;
+
+    if (undistributedTotal > 0) {
+      lastDistributionHTML += `
+        <div class="result-line">
+          미배분 포인트: ${undistributedTotal}점
+          (모든 분배 후보 무기가 숙련도 10 이상입니다.)
+        </div>
+      `;
+    }
+
+    hasFinalized = true;
+
+    renderResults();
+  }
+
+  // ========================================
+  // 결과 표시
+  // 왼쪽: 결과 및 1차/2차 수거 기록
+  // 오른쪽: 분배 결과
+  // ========================================
+
+  function renderResults() {
+    const firstHTML = firstCollection
+      ? `
+          ${firstCollection.html}
+
+          <div class="result-line">
+            <strong>
+              1차 수거 포인트: ${firstCollection.total}점
+            </strong>
+          </div>
+        `
+      : `
+          <div class="result-line">
+            아직 1차 수거를 진행하지 않았습니다.
+          </div>
+        `;
+
+    const secondHTML = secondCollection
+      ? `
+          ${secondCollection.html}
+
+          <div class="result-line">
+            <strong>
+              2차 수거 포인트: ${secondCollection.total}점
+            </strong>
+          </div>
+
+          <div class="result-line">
+            <strong>
+              총 수거 포인트:
+              ${firstCollection.total + secondCollection.total}점
+            </strong>
+          </div>
+        `
+      : `
+          <div class="result-line">
+            아직 최종 수거를 진행하지 않았습니다.
+          </div>
+        `;
+
+    resultBox.innerHTML = `
+      <div class="result-layout">
+
+        <section class="result-column">
+
+          <div class="result-title">
+            결과:
+          </div>
+
+          <div class="result-subtitle">
+            1차 수거 결과
+          </div>
+
+          ${firstHTML}
+
+          <div class="result-subtitle">
+            2차 수거 결과
+          </div>
+
+          ${secondHTML}
+
+        </section>
+
+        <div class="result-divider"></div>
+
+        <section class="result-column">
+
+          <div class="result-title">
+            분배 결과:
+          </div>
+
+          ${lastDistributionHTML}
+
+        </section>
+
+      </div>
+    `;
+  }
+
+  // ========================================
+  // HTML 문자열 이스케이프
+  // ========================================
+
+  function escapeHTML(value) {
+    return String(value).replace(
+      /[&<>"']/g,
+      character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[character]
+    );
+  }
+});
