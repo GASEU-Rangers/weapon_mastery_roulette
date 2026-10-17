@@ -21,6 +21,10 @@ let secondCollection = null;
 // 최종 수거 및 재분배 완료 여부
 let hasFinalized = false;
 
+// 내부 계산용 숙련도
+// 실제 입력창의 값은 변경하지 않음
+let virtualMastery = new Map();
+
 // 분배 결과 기록
 let lastDistributionHTML = `
   <div class="result-line">
@@ -32,7 +36,7 @@ let lastDistributionHTML = `
 createCharacter("이름");
 createCharacter("이름");
 
-// 최초 화면에도 결과 제목 표시
+// 최초 화면 결과 표시
 renderResults();
 
 // 대상 추가
@@ -52,7 +56,7 @@ finalRollBtn.addEventListener(
 
 // ========================================
 // 캐릭터 생성
-// 기존 표 구조 유지
+// 기존 표 구조 및 클래스 유지
 // ========================================
 
 function createCharacter(name) {
@@ -182,9 +186,7 @@ function getCharacterData(table) {
     weapons.push({
       weaponInput,
       masteryInput,
-
       weapon: weaponInput.value,
-
       mastery: Math.max(
         0,
         parseInt(rawMastery, 10) || 0
@@ -215,9 +217,47 @@ function getAllCharacters() {
 
 
 // ========================================
+// 내부 숙련도 초기화
+// 새 수거 절차를 시작할 때만 실행
+// ========================================
+
+function initializeVirtualMastery() {
+  virtualMastery = new Map();
+
+  getAllCharacters().forEach(character => {
+    character.weapons.forEach(weapon => {
+      virtualMastery.set(
+        weapon.masteryInput,
+        weapon.mastery
+      );
+    });
+  });
+}
+
+
+// ========================================
+// 내부 숙련도 가져오기
+// 새로 추가한 무기도 처리
+// ========================================
+
+function getVirtualMastery(weapon) {
+  if (!virtualMastery.has(weapon.masteryInput)) {
+    virtualMastery.set(
+      weapon.masteryInput,
+      weapon.mastery
+    );
+  }
+
+  return virtualMastery.get(weapon.masteryInput);
+}
+
+
+// ========================================
 // 수거 시스템
-// 캐릭터마다 숙련도 1 이상인 무기 중
-// 무작위로 하나를 선택하여 1점 수거
+// 캐릭터마다 수거 가능한 무기 중
+// 무작위 하나를 골라 내부 숙련도 1 감소
+//
+// 실제 입력창의 값은 변경하지 않음
 // ========================================
 
 function collectPoints() {
@@ -230,10 +270,9 @@ function collectPoints() {
     const availableWeapons = character.weapons.filter(
       weapon =>
         weapon.weapon.trim() !== "" &&
-        weapon.mastery > 0
+        getVirtualMastery(weapon) > 0
     );
 
-    // 수거 가능한 무기가 없는 경우
     if (availableWeapons.length === 0) {
       resultsHTML += `
         <div class="result-line">
@@ -244,7 +283,6 @@ function collectPoints() {
       return;
     }
 
-    // 무작위 무기 선택
     const selectedWeapon =
       availableWeapons[
         Math.floor(
@@ -252,11 +290,14 @@ function collectPoints() {
         )
       ];
 
-    // 숙련도 1 감소
-    selectedWeapon.mastery -= 1;
+    // 내부 데이터만 1 감소
+    const currentMastery =
+      getVirtualMastery(selectedWeapon);
 
-    selectedWeapon.masteryInput.value =
-      selectedWeapon.mastery;
+    virtualMastery.set(
+      selectedWeapon.masteryInput,
+      currentMastery - 1
+    );
 
     confiscatedTotal += 1;
 
@@ -277,7 +318,7 @@ function collectPoints() {
 
 // ========================================
 // 결과 화면 렌더링
-// 기존 CSS 클래스 및 표 디자인 유지
+// 기존 결과 클래스 및 구조 유지
 // ========================================
 
 function renderResults() {
@@ -316,7 +357,6 @@ function renderResults() {
         </div>
       `;
 
-  // 상위 제목과 하위 제목은 항상 표시
   resultBox.innerHTML = `
     <div class="result-section">
 
@@ -357,23 +397,25 @@ function renderResults() {
 
 // ========================================
 // 1차 수거
+// 새 절차를 시작하고 기존 기록 초기화
 // ========================================
 
 function firstCollect() {
-  // 새로운 수거 절차 시작
   hasFinalized = false;
 
-  // 기존 2차 수거 기록 초기화
+  firstCollection = null;
   secondCollection = null;
 
-  // 이전 분배 결과 초기화
   lastDistributionHTML = `
     <div class="result-line">
       최종 수거 후 재분배 결과가 표시됩니다.
     </div>
   `;
 
-  // 1차 수거 실행 및 기록 저장
+  // 현재 입력값을 내부 계산용으로 복사
+  initializeVirtualMastery();
+
+  // 1차 수거
   firstCollection = collectPoints();
 
   renderResults();
@@ -385,13 +427,11 @@ function firstCollect() {
 // ========================================
 
 function finalCollectAndDistribute() {
-  // 1차 수거 여부 확인
   if (firstCollection === null) {
     alert("먼저 1차 수거를 진행해 주세요.");
     return;
   }
 
-  // 중복 실행 방지
   if (hasFinalized) {
     alert(
       "이미 최종 수거 및 재분배가 완료되었습니다. " +
@@ -404,11 +444,10 @@ function finalCollectAndDistribute() {
   // 2차 수거
   secondCollection = collectPoints();
 
-  // 1차 + 2차 수거 포인트 합산
   const confiscatedTotal =
     firstCollection.total + secondCollection.total;
 
-  // 모든 무기 수집
+  // 현재 존재하는 모든 무기 수집
   const allWeapons = [];
   const allCharacters = getAllCharacters();
 
@@ -418,63 +457,60 @@ function finalCollectAndDistribute() {
         allWeapons.push({
           owner: character.name,
           weapon: weapon.weapon,
-          masteryInput: weapon.masteryInput
+          masteryInput: weapon.masteryInput,
+          mastery: weapon.mastery
         });
       }
     });
   });
 
-  // 무기별 분배량 기록
   const distributionMap = new Map();
 
   let distributedTotal = 0;
 
   // ========================================
   // 포인트 재분배
+  //
+  // 매 포인트마다 후보를 다시 선정
+  // 내부 숙련도 10 이상은 제외
   // ========================================
 
   for (let i = 0; i < confiscatedTotal; i++) {
-    // 매 포인트마다 후보를 새로 확인
-    // 숙련도 10 이상인 무기는 후보에서 제외
     const eligibleWeapons = allWeapons.filter(item => {
-      const rawMastery = item.masteryInput.value.trim();
+      const mastery = getVirtualMastery(item);
 
-      if (rawMastery === "") {
-        return false;
-      }
-
-      const mastery = parseInt(rawMastery, 10);
-
-      return Number.isFinite(mastery) && mastery < 10;
+      return mastery < 10;
     });
 
-    // 모든 무기가 숙련도 10 이상이면 남은 포인트 중단
+    // 모든 무기가 10 이상이면 남은 포인트 미배분
     if (eligibleWeapons.length === 0) {
       break;
     }
 
-    // 후보 중 무작위 무기 하나 선택
-    // 50% 후보 필터를 사용하지 않아 포인트가 누락되지 않음
+    // 자격이 있는 무기 중 무작위 선택
     const selected =
       eligibleWeapons[
         Math.floor(Math.random() * eligibleWeapons.length)
       ];
 
-    const currentMastery =
-      parseInt(selected.masteryInput.value, 10);
+    const currentMastery = getVirtualMastery(selected);
 
     // 안전 확인
-    if (!Number.isFinite(currentMastery) || currentMastery >= 10) {
+    if (currentMastery >= 10) {
       continue;
     }
 
-    // 선택된 무기에 1점 지급
-    selected.masteryInput.value = currentMastery + 1;
+    // 내부 숙련도만 1 증가
+    // 실제 입력창의 값은 변경하지 않음
+    virtualMastery.set(
+      selected.masteryInput,
+      currentMastery + 1
+    );
 
     distributedTotal += 1;
 
-    // 무기별 분배 결과 기록
-    const key = `${selected.owner}|||${selected.weapon}`;
+    const key =
+      `${selected.owner}|||${selected.weapon}`;
 
     if (!distributionMap.has(key)) {
       distributionMap.set(key, {
@@ -487,7 +523,6 @@ function finalCollectAndDistribute() {
     distributionMap.get(key).amount += 1;
   }
 
-  // 실제 미배분 포인트 계산
   const undistributedTotal =
     confiscatedTotal - distributedTotal;
 
@@ -516,7 +551,6 @@ function finalCollectAndDistribute() {
       .join("");
   }
 
-  // 총 수거 및 분배량 표시
   lastDistributionHTML += `
     <div class="result-line">
       수거 포인트 합계:
@@ -531,7 +565,6 @@ function finalCollectAndDistribute() {
     </div>
   `;
 
-  // 모든 무기가 상한에 도달한 경우에만 미배분 발생
   if (undistributedTotal > 0) {
     lastDistributionHTML += `
       <div class="result-line">
@@ -543,7 +576,6 @@ function finalCollectAndDistribute() {
 
   hasFinalized = true;
 
-  // 기존 결과 영역의 구조를 유지하며 갱신
   renderResults();
 }
 
