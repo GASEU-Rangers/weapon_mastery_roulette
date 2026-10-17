@@ -1,489 +1,566 @@
 
-document.addEventListener("DOMContentLoaded", () => {
-    // ========================================
-    // 1. HTML 요소
-    // ========================================
+const charactersContainer =
+  document.getElementById("characters");
 
-    const charactersContainer = document.getElementById("characters");
-    const resultBox = document.getElementById("result");
-    const addCharacterBtn = document.getElementById("addCharacterBtn");
-    const firstCollectBtn = document.getElementById("firstCollectBtn");
-    const finalRollBtn = document.getElementById("finalRollBtn");
+const resultBox =
+  document.getElementById("result");
 
-    if (
-        !charactersContainer ||
-        !resultBox ||
-        !addCharacterBtn ||
-        !firstCollectBtn ||
-        !finalRollBtn
-    ) {
-        console.error(
-            "필요한 HTML 요소를 찾을 수 없습니다. " +
-            "characters, result, addCharacterBtn, " +
-            "firstCollectBtn, finalRollBtn의 ID를 확인해 주세요."
-        );
-        return;
-    }
+const addCharacterBtn =
+  document.getElementById("addCharacterBtn");
 
-    // ========================================
-    // 2. 상태 변수
-    // ========================================
+const firstCollectBtn =
+  document.getElementById("firstCollectBtn");
 
-    let firstCollection = null;
-    let secondCollection = null;
-    let hasFinalized = false;
+const finalRollBtn =
+  document.getElementById("finalRollBtn");
 
-    let lastDistributionHTML = `
-        <div class="result-line">아직 분배 결과가 없습니다.</div>
+// 수거 기록
+let firstCollection = null;
+let secondCollection = null;
+
+// 최종 수거 및 재분배 완료 여부
+let hasFinalized = false;
+
+// 분배 결과 기록
+let lastDistributionHTML = `
+  <div class="result-line">
+    아직 분배 결과가 없습니다.
+  </div>
+`;
+
+// 기본 대상 2개 생성
+createCharacter("이름");
+createCharacter("이름");
+
+// 최초 화면에도 결과 제목 표시
+renderResults();
+
+// 대상 추가
+addCharacterBtn.addEventListener("click", () => {
+  createCharacter("이름");
+});
+
+// 1차 수거
+firstCollectBtn.addEventListener("click", firstCollect);
+
+// 최종 수거 및 재분배
+finalRollBtn.addEventListener(
+  "click",
+  finalCollectAndDistribute
+);
+
+
+// ========================================
+// 캐릭터 생성
+// 기존 표 구조 유지
+// ========================================
+
+function createCharacter(name) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "character-box";
+
+  const table = document.createElement("table");
+  table.className = "character-table";
+
+  // 표 헤더
+  const header = document.createElement("tr");
+
+  header.innerHTML = `
+    <td class="diagonal"></td>
+    <th>무기</th>
+    <th>숙련도</th>
+  `;
+
+  table.appendChild(header);
+
+  // 기본 무기 행
+  const row = document.createElement("tr");
+
+  row.innerHTML = `
+    <td class="name-cell" rowspan="1">
+      <input
+        type="text"
+        value="${escapeHTML(name)}"
+        class="character-name">
+    </td>
+
+    <td>
+      <input
+        type="text"
+        class="weapon-input">
+    </td>
+
+    <td>
+      <input
+        type="number"
+        min="0"
+        step="1"
+        value="0"
+        class="mastery-input">
+    </td>
+  `;
+
+  table.appendChild(row);
+
+  // 무기 추가 버튼
+  const addWeaponBtn = document.createElement("button");
+
+  addWeaponBtn.textContent = "무기 추가";
+  addWeaponBtn.className = "add-weapon-btn";
+  addWeaponBtn.type = "button";
+
+  addWeaponBtn.addEventListener("click", () => {
+    const newRow = document.createElement("tr");
+
+    newRow.innerHTML = `
+      <td>
+        <input
+          type="text"
+          class="weapon-input">
+      </td>
+
+      <td>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          value="0"
+          class="mastery-input">
+      </td>
     `;
 
-    // ========================================
-    // 3. HTML 출력용 문자열 처리
-    // ========================================
+    table.appendChild(newRow);
 
-    function escapeHTML(value) {
-        return String(value)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+    // 캐릭터 이름 셀의 rowspan 증가
+    const firstNameCell = table.rows[1].cells[0];
+    firstNameCell.rowSpan += 1;
+  });
+
+  wrapper.appendChild(table);
+  wrapper.appendChild(addWeaponBtn);
+
+  charactersContainer.appendChild(wrapper);
+}
+
+
+// ========================================
+// 캐릭터 및 무기 데이터 가져오기
+// ========================================
+
+function getCharacterData(table) {
+  const rows = [...table.rows].slice(1);
+
+  const nameInput =
+    rows[0].querySelector(".character-name");
+
+  const name = nameInput
+    ? nameInput.value
+    : "이름";
+
+  const weapons = [];
+
+  rows.forEach((row, index) => {
+    let weaponCell;
+    let masteryCell;
+
+    if (index === 0) {
+      weaponCell = row.cells[1];
+      masteryCell = row.cells[2];
+    } else {
+      weaponCell = row.cells[0];
+      masteryCell = row.cells[1];
     }
 
-    // ========================================
-    // 4. 캐릭터 및 무기 입력란 생성
-    // ========================================
+    const weaponInput =
+      weaponCell.querySelector(".weapon-input");
 
-    function createWeaponRow(weaponName = "", mastery = 0) {
-        const row = document.createElement("div");
-        row.className = "weapon-row";
+    const masteryInput =
+      masteryCell.querySelector(".mastery-input");
 
-        const nameInput = document.createElement("input");
-        nameInput.type = "text";
-        nameInput.className = "weapon-name";
-        nameInput.placeholder = "무기 이름";
-        nameInput.value = weaponName;
-        nameInput.setAttribute("aria-label", "무기 이름");
+    const rawMastery = masteryInput.value.trim();
 
-        const masteryInput = document.createElement("input");
-        masteryInput.type = "number";
-        masteryInput.className = "mastery";
-        masteryInput.placeholder = "숙련도";
-        masteryInput.min = "0";
-        masteryInput.step = "1";
-        masteryInput.value = mastery;
-        masteryInput.setAttribute("aria-label", "무기 숙련도");
+    weapons.push({
+      weaponInput,
+      masteryInput,
 
-        const removeBtn = document.createElement("button");
-        removeBtn.type = "button";
-        removeBtn.className = "remove-weapon-btn";
-        removeBtn.textContent = "무기 삭제";
+      weapon: weaponInput.value,
 
-        removeBtn.addEventListener("click", () => {
-            row.remove();
-        });
-
-        row.append(nameInput, masteryInput, removeBtn);
-
-        return row;
-    }
-
-    function createCharacter(name = "") {
-        const character = document.createElement("div");
-        character.className = "character";
-
-        const characterHeader = document.createElement("div");
-        characterHeader.className = "character-header";
-
-        const nameInput = document.createElement("input");
-        nameInput.type = "text";
-        nameInput.className = "character-name";
-        nameInput.placeholder = "캐릭터 이름";
-        nameInput.value = name;
-        nameInput.setAttribute("aria-label", "캐릭터 이름");
-
-        const removeCharacterBtn = document.createElement("button");
-        removeCharacterBtn.type = "button";
-        removeCharacterBtn.className = "remove-character-btn";
-        removeCharacterBtn.textContent = "캐릭터 삭제";
-
-        removeCharacterBtn.addEventListener("click", () => {
-            character.remove();
-        });
-
-        characterHeader.append(nameInput, removeCharacterBtn);
-
-        const weaponsContainer = document.createElement("div");
-        weaponsContainer.className = "weapons";
-
-        // 기본 무기 입력란 하나 생성
-        weaponsContainer.appendChild(createWeaponRow());
-
-        const addWeaponBtn = document.createElement("button");
-        addWeaponBtn.type = "button";
-        addWeaponBtn.className = "add-weapon-btn";
-        addWeaponBtn.textContent = "무기 추가";
-
-        addWeaponBtn.addEventListener("click", () => {
-            weaponsContainer.appendChild(createWeaponRow());
-        });
-
-        character.append(
-            characterHeader,
-            weaponsContainer,
-            addWeaponBtn
-        );
-
-        return character;
-    }
-
-    // ========================================
-    // 5. 캐릭터 추가
-    // ========================================
-
-    addCharacterBtn.addEventListener("click", () => {
-        charactersContainer.appendChild(createCharacter());
+      mastery: Math.max(
+        0,
+        parseInt(rawMastery, 10) || 0
+      )
     });
+  });
 
-    // ========================================
-    // 6. 결과 기록 생성
-    // ========================================
+  return {
+    name,
+    weapons
+  };
+}
 
-    function createCollectionLogHTML(collection) {
-        if (!collection || collection.log.length === 0) {
-            return `<div class="result-line">수거된 포인트가 없습니다.</div>`;
-        }
 
-        return collection.log.map(item => `
-            <div class="result-line">
-                <strong>${escapeHTML(item.owner)}</strong>
-                /
-                ${escapeHTML(item.weapon)}
-                : -1점
-            </div>
-        `).join("");
-    }
+// ========================================
+// 전체 캐릭터 데이터 가져오기
+// ========================================
 
-    // ========================================
-    // 7. 결과 화면 렌더링
-    // ========================================
+function getAllCharacters() {
+  const tables = document.querySelectorAll(
+    ".character-table"
+  );
 
-    function renderResults() {
-        const firstHTML = firstCollection
-            ? `
-                <h3>1차 수거 결과</h3>
-                ${createCollectionLogHTML(firstCollection)}
-                <div class="result-line">
-                    <strong>1차 수거 합계: ${firstCollection.total}점</strong>
-                </div>
-            `
-            : `
-                <h3>1차 수거 결과</h3>
-                <div class="result-line">아직 수거하지 않았습니다.</div>
-            `;
+  return [...tables].map(table =>
+    getCharacterData(table)
+  );
+}
 
-        const secondHTML = secondCollection
-            ? `
-                <h3>2차 수거 결과</h3>
-                ${createCollectionLogHTML(secondCollection)}
-                <div class="result-line">
-                    <strong>2차 수거 합계: ${secondCollection.total}점</strong>
-                </div>
-                <div class="result-line">
-                    <strong>
-                        총 수거 포인트:
-                        ${firstCollection.total + secondCollection.total}점
-                    </strong>
-                </div>
-            `
-            : `
-                <h3>2차 수거 결과</h3>
-                <div class="result-line">아직 수거하지 않았습니다.</div>
-            `;
 
-        // 상위 제목인 결과와 분배 결과는 항상 표시
-        resultBox.innerHTML = `
-            <section class="result-section">
-                <h2>결과</h2>
-                ${firstHTML}
-                ${secondHTML}
-            </section>
+// ========================================
+// 수거 시스템
+// 캐릭터마다 숙련도 1 이상인 무기 중
+// 무작위로 하나를 선택하여 1점 수거
+// ========================================
 
-            <section class="distribution-section">
-                <h2>분배 결과</h2>
-                ${lastDistributionHTML}
-            </section>
-        `;
-    }
+function collectPoints() {
+  const allCharacters = getAllCharacters();
 
-    // ========================================
-    // 8. 수거 진행
-    // 캐릭터마다 숙련도가 1 이상인 무기 하나를
-    // 무작위로 선택하여 숙련도를 1 감소시킴
-    // ========================================
+  let confiscatedTotal = 0;
+  let resultsHTML = "";
 
-    function collectPoints() {
-        const log = [];
-
-        const characters = Array.from(
-            charactersContainer.querySelectorAll(".character")
-        );
-
-        characters.forEach(character => {
-            const ownerInput = character.querySelector(".character-name");
-
-            const owner = ownerInput?.value.trim() || "이름 없음";
-
-            const weaponRows = Array.from(
-                character.querySelectorAll(".weapon-row")
-            );
-
-            const availableWeapons = weaponRows
-                .map(row => {
-                    const nameInput = row.querySelector(".weapon-name");
-                    const masteryInput = row.querySelector(".mastery");
-
-                    if (!nameInput || !masteryInput) {
-                        return null;
-                    }
-
-                    const weaponName = nameInput.value.trim();
-                    const mastery = Number(masteryInput.value);
-
-                    if (
-                        !weaponName ||
-                        masteryInput.value.trim() === "" ||
-                        !Number.isFinite(mastery) ||
-                        mastery <= 0
-                    ) {
-                        return null;
-                    }
-
-                    return {
-                        weapon: weaponName,
-                        masteryInput,
-                        mastery
-                    };
-                })
-                .filter(Boolean);
-
-            // 수거 가능한 무기가 없으면 다음 캐릭터로
-            if (availableWeapons.length === 0) {
-                return;
-            }
-
-            // 무작위 무기 하나 선택
-            const selected =
-                availableWeapons[
-                    Math.floor(Math.random() * availableWeapons.length)
-                ];
-
-            // 숙련도 1 감소
-            selected.masteryInput.value = selected.mastery - 1;
-
-            log.push({
-                owner,
-                weapon: selected.weapon
-            });
-        });
-
-        return {
-            log,
-            total: log.length
-        };
-    }
-
-    // ========================================
-    // 9. 1차 수거 버튼
-    // ========================================
-
-    firstCollectBtn.addEventListener("click", () => {
-        // 이전 최종 결과를 초기화하고 새 1차 수거 진행
-        firstCollection = collectPoints();
-        secondCollection = null;
-        hasFinalized = false;
-
-        lastDistributionHTML = `
-            <div class="result-line">
-                1차 수거 완료. 최종 수거 후 재분배할 수 있습니다.
-            </div>
-        `;
-
-        renderResults();
-    });
-
-    // ========================================
-    // 10. 최종 수거 및 재분배
-    // ========================================
-
-    function finalCollectAndDistribute() {
-        if (!firstCollection) {
-            alert("먼저 1차 수거를 진행해 주세요.");
-            return;
-        }
-
-        if (hasFinalized) {
-            alert("이미 최종 수거 및 재분배를 진행했습니다.");
-            return;
-        }
-
-        // 2차 수거
-        secondCollection = collectPoints();
-
-        // 1차 + 2차 수거 포인트 합산
-        const confiscatedTotal =
-            firstCollection.total + secondCollection.total;
-
-        // 모든 캐릭터의 무기 수집
-        const allWeapons = [];
-
-        charactersContainer
-            .querySelectorAll(".character")
-            .forEach(character => {
-                const owner =
-                    character.querySelector(".character-name")
-                        ?.value.trim() || "이름 없음";
-
-                character.querySelectorAll(".weapon-row").forEach(row => {
-                    const weaponInput = row.querySelector(".weapon-name");
-                    const masteryInput = row.querySelector(".mastery");
-
-                    if (!weaponInput || !masteryInput) {
-                        return;
-                    }
-
-                    const weaponName = weaponInput.value.trim();
-
-                    if (!weaponName) {
-                        return;
-                    }
-
-                    allWeapons.push({
-                        owner,
-                        weapon: weaponName,
-                        masteryInput
-                    });
-                });
-            });
-
-        const distributionMap = new Map();
-
-        let distributedTotal = 0;
-        let undistributedTotal = 0;
-
-        // 수거한 포인트를 하나씩 재분배
-        for (let i = 0; i < confiscatedTotal; i++) {
-            // 매번 현재 숙련도를 다시 확인
-            // 숙련도 10 이상인 무기는 후보에서 제외
-            const eligibleWeapons = allWeapons.filter(item => {
-                const mastery = Number(item.masteryInput.value);
-
-                return (
-                    item.masteryInput.value.trim() !== "" &&
-                    Number.isFinite(mastery) &&
-                    mastery < 10
-                );
-            });
-
-            // 모든 무기가 숙련도 10 이상이면
-            // 남은 포인트를 지급하지 않음
-            if (eligibleWeapons.length === 0) {
-                undistributedTotal = confiscatedTotal - distributedTotal;
-                break;
-            }
-
-            // 후보 중 하나를 무작위로 선택
-            const selected =
-                eligibleWeapons[
-                    Math.floor(Math.random() * eligibleWeapons.length)
-                ];
-
-            const currentMastery = Number(selected.masteryInput.value);
-
-            // 선택된 무기에 포인트 1점 지급
-            selected.masteryInput.value = currentMastery + 1;
-            distributedTotal++;
-
-            // 무기별 분배량 기록
-            const key = `${selected.owner}|||${selected.weapon}`;
-
-            if (!distributionMap.has(key)) {
-                distributionMap.set(key, {
-                    owner: selected.owner,
-                    weapon: selected.weapon,
-                    points: 0
-                });
-            }
-
-            distributionMap.get(key).points++;
-        }
-
-        // ========================================
-        // 11. 분배 결과 출력
-        // ========================================
-
-        if (distributionMap.size > 0) {
-            lastDistributionHTML = [...distributionMap.values()]
-                .map(item => `
-                    <div class="result-line">
-                        <strong>${escapeHTML(item.owner)}</strong>
-                        /
-                        ${escapeHTML(item.weapon)}
-                        : +${item.points}점
-                    </div>
-                `)
-                .join("");
-        } else {
-            lastDistributionHTML = `
-                <div class="result-line">
-                    분배된 포인트가 없습니다.
-                </div>
-            `;
-        }
-
-        if (undistributedTotal > 0) {
-            lastDistributionHTML += `
-                <div class="result-line">
-                    미배분 포인트: ${undistributedTotal}점
-                    (모든 무기의 숙련도가 10 이상입니다.)
-                </div>
-            `;
-        }
-
-        lastDistributionHTML += `
-            <div class="result-line">
-                <strong>수거 포인트 합계: ${confiscatedTotal}점</strong>
-            </div>
-            <div class="result-line">
-                실제 분배: ${distributedTotal}점
-            </div>
-            <div class="result-line">
-                미배분: ${undistributedTotal}점
-            </div>
-        `;
-
-        hasFinalized = true;
-
-        renderResults();
-    }
-
-    // ========================================
-    // 12. 최종 수거 버튼 연결
-    // ========================================
-
-    finalRollBtn.addEventListener(
-        "click",
-        finalCollectAndDistribute
+  allCharacters.forEach(character => {
+    const availableWeapons = character.weapons.filter(
+      weapon =>
+        weapon.weapon.trim() !== "" &&
+        weapon.mastery > 0
     );
 
-    // ========================================
-    // 13. 초기 화면
-    // ========================================
+    // 수거 가능한 무기가 없는 경우
+    if (availableWeapons.length === 0) {
+      resultsHTML += `
+        <div class="result-line">
+          ${escapeHTML(character.name)}: 수거 불가
+        </div>
+      `;
 
-    // 최초 캐릭터 2명 생성
-    charactersContainer.appendChild(createCharacter("캐릭터 1"));
-    charactersContainer.appendChild(createCharacter("캐릭터 2"));
+      return;
+    }
 
-    // 처음부터 결과 / 분배 결과 제목 표시
-    renderResults();
-});
+    // 무작위 무기 선택
+    const selectedWeapon =
+      availableWeapons[
+        Math.floor(
+          Math.random() * availableWeapons.length
+        )
+      ];
+
+    // 숙련도 1 감소
+    selectedWeapon.mastery -= 1;
+
+    selectedWeapon.masteryInput.value =
+      selectedWeapon.mastery;
+
+    confiscatedTotal += 1;
+
+    resultsHTML += `
+      <div class="result-line">
+        ${escapeHTML(character.name)}:
+        ${escapeHTML(selectedWeapon.weapon)} -1
+      </div>
+    `;
+  });
+
+  return {
+    total: confiscatedTotal,
+    html: resultsHTML
+  };
+}
+
+
+// ========================================
+// 결과 화면 렌더링
+// 기존 CSS 클래스 및 표 디자인 유지
+// ========================================
+
+function renderResults() {
+  const firstHTML = firstCollection
+    ? `
+        ${firstCollection.html}
+
+        <div class="result-line">
+          1차 수거 포인트:
+          ${firstCollection.total}
+        </div>
+      `
+    : `
+        <div class="result-line">
+          아직 1차 수거를 진행하지 않았습니다.
+        </div>
+      `;
+
+  const secondHTML = secondCollection
+    ? `
+        ${secondCollection.html}
+
+        <div class="result-line">
+          2차 수거 포인트:
+          ${secondCollection.total}
+        </div>
+
+        <div class="result-line">
+          1·2차 수거 합계:
+          ${firstCollection.total + secondCollection.total}
+        </div>
+      `
+    : `
+        <div class="result-line">
+          아직 2차 수거를 진행하지 않았습니다.
+        </div>
+      `;
+
+  // 상위 제목과 하위 제목은 항상 표시
+  resultBox.innerHTML = `
+    <div class="result-section">
+
+      <div class="result-title">
+        결과:
+      </div>
+
+      <div class="result-section">
+        <div class="result-title">
+          1차 수거 결과
+        </div>
+
+        ${firstHTML}
+      </div>
+
+      <div class="result-section">
+        <div class="result-title">
+          2차 수거 결과
+        </div>
+
+        ${secondHTML}
+      </div>
+
+    </div>
+
+    <div class="result-section">
+
+      <div class="result-title">
+        분배 결과:
+      </div>
+
+      ${lastDistributionHTML}
+
+    </div>
+  `;
+}
+
+
+// ========================================
+// 1차 수거
+// ========================================
+
+function firstCollect() {
+  // 새로운 수거 절차 시작
+  hasFinalized = false;
+
+  // 기존 2차 수거 기록 초기화
+  secondCollection = null;
+
+  // 이전 분배 결과 초기화
+  lastDistributionHTML = `
+    <div class="result-line">
+      최종 수거 후 재분배 결과가 표시됩니다.
+    </div>
+  `;
+
+  // 1차 수거 실행 및 기록 저장
+  firstCollection = collectPoints();
+
+  renderResults();
+}
+
+
+// ========================================
+// 최종 수거 및 재분배
+// ========================================
+
+function finalCollectAndDistribute() {
+  // 1차 수거 여부 확인
+  if (firstCollection === null) {
+    alert("먼저 1차 수거를 진행해 주세요.");
+    return;
+  }
+
+  // 중복 실행 방지
+  if (hasFinalized) {
+    alert(
+      "이미 최종 수거 및 재분배가 완료되었습니다. " +
+      "다시 진행하려면 1차 수거를 눌러 주세요."
+    );
+
+    return;
+  }
+
+  // 2차 수거
+  secondCollection = collectPoints();
+
+  // 1차 + 2차 수거 포인트 합산
+  const confiscatedTotal =
+    firstCollection.total + secondCollection.total;
+
+  // 모든 무기 수집
+  const allWeapons = [];
+  const allCharacters = getAllCharacters();
+
+  allCharacters.forEach(character => {
+    character.weapons.forEach(weapon => {
+      if (weapon.weapon.trim() !== "") {
+        allWeapons.push({
+          owner: character.name,
+          weapon: weapon.weapon,
+          masteryInput: weapon.masteryInput
+        });
+      }
+    });
+  });
+
+  // 무기별 분배량 기록
+  const distributionMap = new Map();
+
+  let distributedTotal = 0;
+
+  // ========================================
+  // 포인트 재분배
+  // ========================================
+
+  for (let i = 0; i < confiscatedTotal; i++) {
+    // 매 포인트마다 후보를 새로 확인
+    // 숙련도 10 이상인 무기는 후보에서 제외
+    const eligibleWeapons = allWeapons.filter(item => {
+      const rawMastery = item.masteryInput.value.trim();
+
+      if (rawMastery === "") {
+        return false;
+      }
+
+      const mastery = parseInt(rawMastery, 10);
+
+      return Number.isFinite(mastery) && mastery < 10;
+    });
+
+    // 모든 무기가 숙련도 10 이상이면 남은 포인트 중단
+    if (eligibleWeapons.length === 0) {
+      break;
+    }
+
+    // 후보 중 무작위 무기 하나 선택
+    // 50% 후보 필터를 사용하지 않아 포인트가 누락되지 않음
+    const selected =
+      eligibleWeapons[
+        Math.floor(Math.random() * eligibleWeapons.length)
+      ];
+
+    const currentMastery =
+      parseInt(selected.masteryInput.value, 10);
+
+    // 안전 확인
+    if (!Number.isFinite(currentMastery) || currentMastery >= 10) {
+      continue;
+    }
+
+    // 선택된 무기에 1점 지급
+    selected.masteryInput.value = currentMastery + 1;
+
+    distributedTotal += 1;
+
+    // 무기별 분배 결과 기록
+    const key = `${selected.owner}|||${selected.weapon}`;
+
+    if (!distributionMap.has(key)) {
+      distributionMap.set(key, {
+        owner: selected.owner,
+        weapon: selected.weapon,
+        amount: 0
+      });
+    }
+
+    distributionMap.get(key).amount += 1;
+  }
+
+  // 실제 미배분 포인트 계산
+  const undistributedTotal =
+    confiscatedTotal - distributedTotal;
+
+  // ========================================
+  // 분배 결과 출력
+  // ========================================
+
+  const distributionValues =
+    [...distributionMap.values()];
+
+  if (distributionValues.length === 0) {
+    lastDistributionHTML = `
+      <div class="result-line">
+        분배된 포인트 없음
+      </div>
+    `;
+  } else {
+    lastDistributionHTML = distributionValues
+      .map(item => `
+        <div class="result-line">
+          ${escapeHTML(item.owner)}:
+          ${escapeHTML(item.weapon)}
+          +${item.amount}
+        </div>
+      `)
+      .join("");
+  }
+
+  // 총 수거 및 분배량 표시
+  lastDistributionHTML += `
+    <div class="result-line">
+      수거 포인트 합계:
+      ${firstCollection.total}
+      + ${secondCollection.total}
+      = ${confiscatedTotal}
+    </div>
+
+    <div class="result-line">
+      실제 분배 포인트:
+      ${distributedTotal}
+    </div>
+  `;
+
+  // 모든 무기가 상한에 도달한 경우에만 미배분 발생
+  if (undistributedTotal > 0) {
+    lastDistributionHTML += `
+      <div class="result-line">
+        미배분 포인트: ${undistributedTotal}
+        (모든 무기의 숙련도가 10 이상입니다.)
+      </div>
+    `;
+  }
+
+  hasFinalized = true;
+
+  // 기존 결과 영역의 구조를 유지하며 갱신
+  renderResults();
+}
+
+
+// ========================================
+// HTML 출력 시 문자열 이스케이프
+// ========================================
+
+function escapeHTML(value) {
+  return String(value).replace(
+    /[&<>"']/g,
+    character => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[character]
+  );
+}
